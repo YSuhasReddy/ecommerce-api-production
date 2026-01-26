@@ -1,0 +1,210 @@
+name: Deploy to AWS Production
+
+on:
+  push:
+    branches:
+      - main
+      - production
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  NODE_VERSION: '18'
+  AWS_REGION: 'us-east-1'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:14-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: testpass123
+          POSTGRES_DB: ecommerce_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create test environment
+        run: |
+          cat > .env << EOF
+          DB_USER=postgres
+          DB_PASSWORD=testpass123
+          DB_HOST=localhost
+          DB_PORT=5432
+          DB_NAME=ecommerce_test
+          DB_POOL_MAX=5
+          DB_POOL_MIN=1
+          NODE_ENV=test
+          PORT=5001
+          LOG_LEVEL=ERROR
+          SEED_ON_STARTUP=false
+          EOF
+
+      - name: Run linting
+        run: npm run lint --if-present
+
+      - name: Run tests
+        run: npm test --if-present
+
+      - name: Check database connection
+        run: |
+          node -e "
+          require('dotenv').config();
+          const { pool } = require('./database/connection');
+          pool.query('SELECT NOW()', (err, res) => {
+            if (err) {
+              console.error('DB Connection failed:', err);
+              process.exit(1);
+            }
+            console.log('✓ Database connection successful');
+            pool.end();
+          });
+          "
+
+  build:
+    name: Build Docker Image
+    needs: test
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ecommerce-api
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  deploy:
+    name: Deploy to AWS
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/production'
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy to Elastic Beanstalk
+        run: |
+          # Option 1: Using Elastic Beanstalk CLI
+          eb deploy ecommerce-api-prod \
+            --timeout 30 \
+            --envvars \
+              NODE_ENV=production,\
+              DB_HOST=${{ secrets.AWS_DB_HOST }},\
+              DB_USER=${{ secrets.AWS_DB_USER }},\
+              DB_PASSWORD=${{ secrets.AWS_DB_PASSWORD }},\
+              DB_NAME=${{ secrets.AWS_DB_NAME }},\
+              CORS_ORIGIN=${{ secrets.AWS_CORS_ORIGIN }},\
+              LOG_LEVEL=WARN
+
+          # Option 2: Or using AWS AppRunner
+          # aws apprunner create-service \
+          #   --service-name ecommerce-api-prod \
+          #   --source-configuration ... \
+          #   --environment-variables KEY=VALUE
+
+      - name: Verify deployment
+        run: |
+          # Wait for deployment to complete
+          sleep 30
+          
+          # Check health endpoint
+          ENDPOINT=${{ secrets.AWS_API_ENDPOINT }}
+          response=$(curl -s -o /dev/null -w "%{http_code}" $ENDPOINT/health)
+          
+          if [ $response -eq 200 ]; then
+            echo "✓ Deployment successful"
+          else
+            echo "✗ Deployment health check failed: $response"
+            exit 1
+          fi
+
+      - name: Slack notification - Success
+        if: success()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "✓ ecommerce-api deployed to production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deployment Successful*\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }
+
+      - name: Slack notification - Failure
+        if: failure()
+        uses: slackapi/slack-github-action@v1
+        with:
+          webhook-url: ${{ secrets.SLACK_WEBHOOK }}
+          payload: |
+            {
+              "text": "✗ ecommerce-api deployment FAILED",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Deployment Failed*\n*Repository:* ${{ github.repository }}\n*Branch:* ${{ github.ref }}\n*Commit:* ${{ github.sha }}"
+                  }
+                }
+              ]
+            }

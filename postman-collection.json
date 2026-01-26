@@ -1,0 +1,612 @@
+{
+"info": {
+"name": "E-commerce API - Complete Test Suite",
+"description": "Comprehensive Postman collection for testing the production-ready e-commerce API",
+"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+},
+"variable": [
+{
+"key": "baseUrl",
+"value": "http://localhost:5000",
+"type": "string"
+},
+{
+"key": "categoryId",
+"value": "",
+"type": "string"
+},
+{
+"key": "productId",
+"value": "",
+"type": "string"
+}
+],
+"item": [
+{
+"name": "1. Health & Monitoring",
+"item": [
+{
+"name": "Health Check",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/health",
+"host": ["{{baseUrl}}"],
+"path": ["health"]
+},
+"description": "Check API health status, database connections, Redis status, and memory usage"
+},
+"response": []
+},
+{
+"name": "Prometheus Metrics",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/metrics",
+"host": ["{{baseUrl}}"],
+"path": ["metrics"]
+},
+"description": "Get Prometheus metrics for monitoring (HTTP requests, DB queries, cache operations, errors)"
+},
+"response": []
+},
+{
+"name": "API Documentation",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api-docs",
+"host": ["{{baseUrl}}"],
+"path": ["api-docs"]
+},
+"description": "Swagger/OpenAPI documentation UI"
+},
+"response": []
+}
+]
+},
+{
+"name": "2. Categories (Read-Only)",
+"item": [
+{
+"name": "Get All Categories",
+"event": [
+{
+"listen": "test",
+"script": {
+"exec": [
+"// Save first category ID for use in other requests",
+"const response = pm.response.json();",
+"if (response.success && response.data.length > 0) {",
+" pm.collectionVariables.set('categoryId', response.data[0].id);",
+" console.log('Saved category ID:', response.data[0].id);",
+"}"
+],
+"type": "text/javascript"
+}
+}
+],
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/categories",
+"host": ["{{baseUrl}}"],
+"path": ["api", "categories"]
+},
+"description": "Get all product categories. **Note:** Categories are read-only in this API."
+},
+"response": []
+},
+{
+"name": "Get Category by ID",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/categories/{{categoryId}}",
+"host": ["{{baseUrl}}"],
+"path": ["api", "categories", "{{categoryId}}"]
+},
+"description": "Get a specific category by ID"
+},
+"response": []
+}
+]
+},
+{
+"name": "3. Products - CRUD Operations",
+"item": [
+{
+"name": "Get All Products (Basic)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Get first 20 products with cursor pagination"
+},
+"response": []
+},
+{
+"name": "Get Products with Limit",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?limit=5",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "limit",
+"value": "5",
+"description": "Number of products per page (max 100)"
+}
+]
+},
+"description": "Get products with custom limit (max 100)"
+},
+"response": []
+},
+{
+"name": "Get Products by Category",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?category_id={{categoryId}}&limit=10",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "category_id",
+"value": "{{categoryId}}",
+"description": "Filter by category"
+},
+{
+"key": "limit",
+"value": "10"
+}
+]
+},
+"description": "Filter products by category ID"
+},
+"response": []
+},
+{
+"name": "Get Products with Cursor (Next Page)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?cursor=340&limit=20",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "cursor",
+"value": "340",
+"description": "Cursor from previous response"
+},
+{
+"key": "limit",
+"value": "20"
+}
+]
+},
+"description": "Get next page using cursor from previous response's pagination.cursor field"
+},
+"response": []
+},
+{
+"name": "Get Product by ID",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products/{{productId}}",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products", "{{productId}}"]
+},
+"description": "Get a specific product by ID"
+},
+"response": []
+},
+{
+"name": "Create Product",
+"event": [
+{
+"listen": "test",
+"script": {
+"exec": [
+"// Save created product ID",
+"const response = pm.response.json();",
+"if (response.success && response.data) {",
+" pm.collectionVariables.set('productId', response.data.id);",
+" console.log('Created product ID:', response.data.id);",
+"}"
+],
+"type": "text/javascript"
+}
+}
+],
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Postman Test Product\",\n \"description\": \"Created via Postman\",\n \"price\": 99.99,\n \"category_id\": {{categoryId}},\n \"stock\": 50\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Create a new product. **Required fields:** name, price, category_id, stock"
+},
+"response": []
+},
+{
+"name": "Update Product",
+"request": {
+"method": "PUT",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Updated Product Name\",\n \"description\": \"Updated description\",\n \"price\": 149.99,\n \"stock\": 75\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products/{{productId}}",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products", "{{productId}}"]
+},
+"description": "Update an existing product. All fields are optional."
+},
+"response": []
+},
+{
+"name": "Delete Product",
+"request": {
+"method": "DELETE",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products/{{productId}}",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products", "{{productId}}"]
+},
+"description": "Delete a product by ID"
+},
+"response": []
+}
+]
+},
+{
+"name": "4. Security Tests",
+"item": [
+{
+"name": "Test SQL Injection (Blocked)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products/1' OR '1'='1",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products", "1' OR '1'='1"]
+},
+"description": "Should return 400 Bad Request - SQL injection is blocked"
+},
+"response": []
+},
+{
+"name": "Test XSS in Product Name (Rejected)",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"<script>alert('XSS')</script>\",\n \"price\": 10,\n \"category_id\": {{categoryId}},\n \"stock\": 5\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 or sanitize the input"
+},
+"response": []
+},
+{
+"name": "Test Malformed JSON (400 Error)",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{invalid json}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 with clear error message (no stack trace)"
+},
+"response": []
+},
+{
+"name": "Test Negative ID (400 Error)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products/-1",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products", "-1"]
+},
+"description": "Should return 400 Bad Request"
+},
+"response": []
+}
+]
+},
+{
+"name": "5. Validation Tests",
+"item": [
+{
+"name": "Test Zero Price (Rejected)",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Test Product\",\n \"price\": 0,\n \"category_id\": {{categoryId}},\n \"stock\": 10\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 - zero price not allowed"
+},
+"response": []
+},
+{
+"name": "Test Negative Stock (Rejected)",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Test Product\",\n \"price\": 10,\n \"category_id\": {{categoryId}},\n \"stock\": -5\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 - negative stock not allowed"
+},
+"response": []
+},
+{
+"name": "Test Missing Required Fields",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Incomplete Product\"\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 - missing required fields (price, category_id, stock)"
+},
+"response": []
+},
+{
+"name": "Test Invalid Category ID",
+"request": {
+"method": "POST",
+"header": [
+{
+"key": "Content-Type",
+"value": "application/json"
+}
+],
+"body": {
+"mode": "raw",
+"raw": "{\n \"name\": \"Test Product\",\n \"price\": 10,\n \"category_id\": 99999,\n \"stock\": 10\n}"
+},
+"url": {
+"raw": "{{baseUrl}}/api/products",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"]
+},
+"description": "Should return 400 - category doesn't exist"
+},
+"response": []
+}
+]
+},
+{
+"name": "6. Pagination Tests",
+"item": [
+{
+"name": "Test Limit = 0 (Min 1)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?limit=0",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "limit",
+"value": "0",
+"description": "Should return at least 1 product"
+}
+]
+},
+"description": "Minimum limit of 1 should be enforced"
+},
+"response": []
+},
+{
+"name": "Test Limit > 100 (Max 100)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?limit=500",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "limit",
+"value": "500",
+"description": "Should be capped at 100"
+}
+]
+},
+"description": "Maximum limit of 100 should be enforced"
+},
+"response": []
+},
+{
+"name": "Test Invalid Cursor",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?cursor=invalid",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "cursor",
+"value": "invalid",
+"description": "Should return 400 error"
+}
+]
+},
+"description": "Should return 400 Bad Request - cursor must be a positive integer"
+},
+"response": []
+},
+{
+"name": "Test Cursor Beyond Dataset",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?cursor=999999",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "cursor",
+"value": "999999"
+}
+]
+},
+"description": "Should return hasMore: false when cursor is beyond dataset"
+},
+"response": []
+}
+]
+},
+{
+"name": "7. Rate Limiting Test",
+"item": [
+{
+"name": "Normal Request (200 OK)",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?limit=1",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "limit",
+"value": "1"
+}
+]
+},
+"description": "Normal request within rate limit"
+},
+"response": []
+},
+{
+"name": "Test Rate Limit Info",
+"request": {
+"method": "GET",
+"header": [],
+"url": {
+"raw": "{{baseUrl}}/api/products?limit=1",
+"host": ["{{baseUrl}}"],
+"path": ["api", "products"],
+"query": [
+{
+"key": "limit",
+"value": "1"
+}
+]
+},
+"description": "Check response headers for rate limit info: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset"
+},
+"response": []
+}
+],
+"description": "Note: After 100 requests in 15 minutes, you'll get 429 Too Many Requests. Health and metrics endpoints are exempt from rate limiting."
+}
+]
+}
