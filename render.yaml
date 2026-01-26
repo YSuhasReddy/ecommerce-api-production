@@ -13,38 +13,21 @@ services:
         value: production
       - key: PORT
         value: 5000
-      - key: DB_HOST
-        sync: false
-      - key: DB_PORT
-        value: 5432
-      - key: DB_NAME
-        sync: false
-      - key: DB_USER
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
-      - key: REDIS_HOST
-        sync: false
-      - key: REDIS_PORT
-        value: 6379
+      - key: SEED_ON_STARTUP
+        value: true
+      - key: LOG_LEVEL
+        value: INFO
       - key: RATE_LIMIT_WINDOW_MS
         value: 900000
       - key: RATE_LIMIT_MAX_REQUESTS
         value: 100
+      - key: CORS_ORIGIN
+        value: "*"
     healthCheckPath: /health
     autoDeploy: true
 
-  # PostgreSQL Database
-  - type: pserv
-    name: ecommerce-db
-    env: docker
-    plan: free
-    region: oregon
-    dockerfilePath: ./Dockerfile.postgres
-    autoDeploy: false
-
 databases:
-  - name: ecommerce-postgres
+  - name: ecommerce-db
     databaseName: ecommerce_db
     user: postgres
     plan: free
