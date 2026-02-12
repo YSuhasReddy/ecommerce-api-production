@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Tester - Ecommerce API</title>
+    <style>
+        :root {
+            --sidebar-bg: #1e1e2e;
+            --sidebar-text: #cdd6f4;
+            --sidebar-hover: #313244;
+            --sidebar-active: #45475a;
+            --sidebar-width: 280px;
+            --header-height: 50px;
+            --header-bg: #181825;
+            --content-bg: #f5f5f5;
+            --card-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --text-primary: #1e1e2e;
+            --text-secondary: #585b70;
+            --font-mono: Consolas, Monaco, 'Courier New', monospace;
+            --font-sans: -apple-system, 'Segoe UI', Roboto, sans-serif;
+            --method-get: #49cc90;
+            --method-post: #61affe;
+            --method-put: #fca130;
+            --method-delete: #f93e3e;
+            --status-2xx: #49cc90;
+            --status-3xx: #61affe;
+            --status-4xx: #fca130;
+            --status-5xx: #f93e3e;
+            --radius: 6px;
+            --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            height: 100%;
+            font-family: var(--font-sans);
+            background: var(--content-bg);
+            color: var(--text-primary);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            height: var(--header-height);
+            background: var(--header-bg);
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            gap: 16px;
+            color: #fff;
+            z-index: 100;
+        }
+        .hamburger {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+        .hamburger:hover { background: rgba(255, 255, 255, 0.1); }
+        .header-title {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .base-url {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: #a6adc8;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            flex: 1;
+        }
+        .swagger-link {
+            color: #89b4fa;
+            text-decoration: none;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        .swagger-link:hover { text-decoration: underline; }
+
+        /* App Layout */
+        .app {
+            display: flex;
+            height: calc(100vh - var(--header-height));
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            min-width: var(--sidebar-width);
+            background: var(--sidebar-bg);
+            color: var(--sidebar-text);
+            overflow-y: auto;
+            transition: margin-left 0.3s ease;
+        }
+        .sidebar.collapsed { margin-left: calc(-1 * var(--sidebar-width)); }
+        .sidebar-search { padding: 12px; }
+        .sidebar-search input {
+            width: 100%;
+            padding: 8px 12px;
+            background: #313244;
+            border: 1px solid #45475a;
+            border-radius: var(--radius);
+            color: #cdd6f4;
+            font-size: 13px;
+            outline: none;
+        }
+        .sidebar-search input:focus { border-color: #89b4fa; }
+        .sidebar-search input::placeholder { color: #6c7086; }
+
+        .sidebar-group { margin-bottom: 4px; }
+        .group-header {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a6adc8;
+            user-select: none;
+        }
+        .group-header:hover { background: var(--sidebar-hover); }
+        .group-arrow {
+            margin-right: 8px;
+            font-size: 10px;
+            transition: transform 0.2s;
+        }
+        .group-arrow.collapsed { transform: rotate(-90deg); }
+        .group-items { overflow: hidden; }
+        .group-items.collapsed { display: none; }
+
+        .endpoint-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 12px 6px 20px;
+            cursor: pointer;
+            font-size: 13px;
+            gap: 8px;
+            border-left: 3px solid transparent;
+        }
+        .endpoint-item:hover { background: var(--sidebar-hover); }
+        .endpoint-item.active {
+            background: var(--sidebar-active);
+            border-left-color: #89b4fa;
+        }
+
+        .method-badge {
+            font-size: 10px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            padding: 2px 6px;
+            border-radius: 3px;
+            min-width: 52px;
+            text-align: center;
+            color: #fff;
+        }
+        .method-badge.get { background: var(--method-get); }
+        .method-badge.post { background: var(--method-post); }
+        .method-badge.put { background: var(--method-put); }
+        .method-badge.delete { background: var(--method-delete); }
+        .endpoint-path {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            min-width: 0;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        /* Request Bar */
+        .request-bar {
+            display: flex;
+            padding: 12px;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .method-select {
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            background: #fff;
+            min-width: 100px;
+            outline: none;
+        }
+        .method-select:focus { border-color: #89b4fa; }
+        .url-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius);
+            font-family: var(--font-mono);
+            font-size: 14px;
+            outline: none;
+        }
+        .url-input:focus { border-color: #89b4fa; }
+        .send-btn {
+            padding: 8px 24px;
+            background: #89b4fa;
+            color: #1e1e2e;
+            border: none;
+            border-radius: var(--radius);
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .send-btn:hover { background: #74c7ec; }
+        .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .send-btn.loading { background: #f9e2af; }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: #fafafa;
+        }
+        .tab {
+            padding: 8px 16px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s;
+        }
+        .tab:hover { color: var(--text-primary); background: #f0f0f0; }
+        .tab.active { color: #89b4fa; border-bottom-color: #89b4fa; }
+        .tab-panel { display: none; padding: 12px; }
+        .tab-panel.active { display: block; }
+
+        /* Section Label */
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Key-Value Rows */
+        .kv-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .kv-row input[type="text"] {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            outline: none;
+        }
+        .kv-row input[type="text"]:focus { border-color: #89b4fa; }
+        .kv-row input[type="checkbox"] { cursor: pointer; }
+        .kv-remove {
+            background: none;
+            border: none;
+            color: #f38ba8;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+        .kv-remove:hover { background: rgba(243, 139, 168, 0.07); }
+        .no-params {
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-style: italic;
+            padding: 8px 0;
+        }
+
+        /* Add Button */
+        .add-btn {
+            background: none;
+            border: 1px dashed var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 8px;
+            width: 100%;
+        }
+        .add-btn:hover { border-color: #89b4fa; color: #89b4fa; }
+
+        /* Body Editor */
+        .body-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+        .format-btn, .copy-btn {
+            padding: 4px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background: #fff;
+            cursor: pointer;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .format-btn:hover, .copy-btn:hover { border-color: #89b4fa; color: #89b4fa; }
+        .copy-btn.copied { border-color: var(--status-2xx); color: var(--status-2xx); }
+        .body-editor {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            resize: vertical;
+            outline: none;
+            line-height: 1.5;
+        }
+        .body-editor:focus { border-color: #89b4fa; }
+        .body-editor.error { border-color: #f38ba8; }
+        .body-editor:disabled { background: #f5f5f5; cursor: not-allowed; }
+        .body-error {
+            color: #f38ba8;
+            font-size: 12px;
+            margin-top: 4px;
+            display: none;
+        }
+        .body-error.visible { display: block; }
+
+        /* Auth Panel */
+        .auth-section { margin-bottom: 16px; }
+        .token-input-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .token-prefix {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            padding: 6px 0;
+        }
+        .token-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            outline: none;
+        }
+        .token-input:focus { border-color: #89b4fa; }
+        .token-input::placeholder { color: #aaa; }
+        .auth-hint {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+        /* Response Card */
+        .response-card { display: none; }
+        .response-card.visible { display: block; }
+        .response-status {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 13px;
+        }
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-family: var(--font-mono);
+            font-size: 13px;
+            color: #fff;
+        }
+        .status-badge.s2xx { background: var(--status-2xx); }
+        .status-badge.s3xx { background: var(--status-3xx); }
+        .status-badge.s4xx { background: var(--status-4xx); }
+        .status-badge.s5xx { background: var(--status-5xx); }
+        .response-meta {
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            font-size: 12px;
+        }
+
+        /* JSON Viewer */
+        .json-viewer {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow: auto;
+            padding: 4px;
+        }
+        .json-key { color: #89b4fa; }
+        .json-string { color: #a6e3a1; }
+        .json-number { color: #fab387; }
+        .json-boolean { color: #cba6f7; }
+        .json-null { color: #f38ba8; }
+        .json-bracket { color: #585b70; font-weight: 600; }
+        .json-toggle {
+            cursor: pointer;
+            user-select: none;
+            color: #6c7086;
+            display: inline-block;
+            width: 16px;
+            font-size: 10px;
+        }
+        .json-toggle:hover { color: #89b4fa; }
+        .json-collapsed-info {
+            color: #6c7086;
+            font-style: italic;
+            font-size: 12px;
+        }
+        .json-children { padding-left: 20px; }
+        .json-line { white-space: nowrap; }
+
+        /* Raw Viewer */
+        .raw-toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 8px;
+        }
+        .raw-viewer {
+            font-family: var(--font-mono);
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 500px;
+            overflow: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #f8f8f8;
+            padding: 12px;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Response Headers */
+        .resp-header-row {
+            display: flex;
+            padding: 6px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 13px;
+        }
+        .resp-header-key {
+            font-weight: 600;
+            width: 200px;
+            min-width: 200px;
+            font-family: var(--font-mono);
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .resp-header-value {
+            font-family: var(--font-mono);
+            font-size: 12px;
+            word-break: break-all;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.3; }
+        .empty-state-text { font-size: 14px; }
+
+        /* Scrollbars */
+        .sidebar::-webkit-scrollbar,
+        .json-viewer::-webkit-scrollbar,
+        .raw-viewer::-webkit-scrollbar,
+        .main-content::-webkit-scrollbar { width: 6px; }
+        .sidebar::-webkit-scrollbar-track { background: transparent; }
+        .sidebar::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+        .main-content::-webkit-scrollbar-track,
+        .json-viewer::-webkit-scrollbar-track,
+        .raw-viewer::-webkit-scrollbar-track { background: transparent; }
+        .main-content::-webkit-scrollbar-thumb,
+        .json-viewer::-webkit-scrollbar-thumb,
+        .raw-viewer::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <button class="hamburger" id="hamburgerBtn">&#9776;</button>
+        <div class="header-title">API Tester</div>
+        <div class="base-url" id="baseUrlDisplay"></div>
+        <a class="swagger-link" href="/api-docs" target="_blank">Swagger Docs &#8594;</a>
+    </header>
+
+    <!-- App Container -->
+    <div class="app">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-search">
+                <input type="text" id="searchInput" placeholder="Filter endpoints...">
+            </div>
+            <div id="sidebarGroups"></div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Request Builder Card -->
+            <div class="card">
+                <div class="request-bar">
+                    <select class="method-select" id="methodSelect">
+                        <option value="GET">GET</option>
+                        <option value="POST">POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                    <input type="text" class="url-input" id="urlInput" placeholder="Enter request URL...">
+                    <button class="send-btn" id="sendBtn">Send</button>
+                </div>
+
+                <!-- Request Tabs -->
+                <div class="tabs" id="requestTabs">
+                    <button class="tab active" data-tab="params">Params</button>
+                    <button class="tab" data-tab="auth">Auth</button>
+                    <button class="tab" data-tab="headers">Headers</button>
+                    <button class="tab" data-tab="body">Body</button>
+                </div>
+
+                <!-- Params Tab -->
+                <div class="tab-panel active" id="paramsPanel">
+                    <div class="section-label">Path Parameters</div>
+                    <div id="pathParams"></div>
+                    <div class="section-label" style="margin-top: 12px;">Query Parameters</div>
+                    <div id="queryParams"></div>
+                    <button class="add-btn" id="addQueryParam">+ Add Parameter</button>
+                </div>
+
+                <!-- Headers Tab -->
+                <div class="tab-panel" id="headersPanel">
+                    <div id="headerRows"></div>
+                    <button class="add-btn" id="addHeader">+ Add Header</button>
+                </div>
+
+                <!-- Auth Tab -->
+                <div class="tab-panel" id="authPanel">
+                    <div class="auth-section">
+                        <div class="section-label">Bearer Token</div>
+                        <div class="token-input-row">
+                            <span class="token-prefix">Bearer</span>
+                            <input type="text" class="token-input" id="bearerTokenInput" placeholder="Paste your token here...">
+                        </div>
+                        <div class="auth-hint">Token is sent as: Authorization: Bearer &lt;token&gt;</div>
+                        <div class="auth-hint">Write endpoints (POST, PUT, DELETE) require a valid token.</div>
+                        <div style="margin-top: 16px; border-top: 1px solid #e0e0e0; padding-top: 16px;">
+                            <div class="section-label">Generate New Token</div>
+                            <div class="token-input-row">
+                                <input type="text" class="token-input" id="tokenNameInput" placeholder="Token name (optional)" style="flex: 0.5;">
+                                <button class="send-btn" id="generateTokenBtn" style="padding: 8px 16px; font-size: 13px;">Generate</button>
+                            </div>
+                            <div id="generatedTokenArea" style="display: none; margin-top: 12px;">
+                                <div class="section-label">Generated Token (copy it now)</div>
+                                <div class="token-input-row">
+                                    <input type="text" class="token-input" id="generatedTokenDisplay" readonly style="background: #f0fdf4; border-color: #49cc90;">
+                                    <button class="copy-btn" id="copyTokenBtn">Copy</button>
+                                    <button class="format-btn" id="useTokenBtn">Use</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Body Tab -->
+                <div class="tab-panel" id="bodyPanel">
+                    <div class="body-toolbar">
+                        <button class="format-btn" id="formatBtn">Format JSON</button>
+                    </div>
+                    <textarea class="body-editor" id="bodyEditor" placeholder="Enter JSON body..."></textarea>
+                    <div class="body-error" id="bodyError"></div>
+                </div>
+            </div>
+
+            <!-- Response Card -->
+            <div class="card response-card" id="responseCard">
+                <div class="response-status" id="responseStatus"></div>
+
+                <!-- Response Tabs -->
+                <div class="tabs" id="responseTabs">
+                    <button class="tab active" data-tab="json">JSON</button>
+                    <button class="tab" data-tab="raw">Raw</button>
+                    <button class="tab" data-tab="respHeaders">Headers</button>
+                </div>
+
+                <div class="tab-panel active" id="jsonPanel">
+                    <div class="json-viewer" id="jsonViewer"></div>
+                </div>
+                <div class="tab-panel" id="rawPanel">
+                    <div class="raw-toolbar">
+                        <button class="copy-btn" id="copyBtn">Copy</button>
+                    </div>
+                    <pre class="raw-viewer" id="rawViewer"></pre>
+                </div>
+                <div class="tab-panel" id="respHeadersPanel">
+                    <div id="respHeadersTable"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    (function() {
+        'use strict';
+
+        // =============================================
+        // ENDPOINT REGISTRY
+        // =============================================
+        var ENDPOINTS = [
+            {
+                group: 'Categories',
+                items: [
+                    {
+                        method: 'GET',
+                        path: '/api/categories',
+                        name: 'List Categories',
+                        description: 'Get all categories (cursor-based pagination)',
+                        defaultQuery: [
+                            { key: 'limit', value: '10', enabled: true },
+                            { key: 'cursor', value: '', enabled: false }
+                        ]
+                    },
+                    {
+                        method: 'GET',
+                        path: '/api/categories/:id',
+                        name: 'Get Category',
+                        description: 'Get category by ID with paginated products',
+                        pathParams: [{ name: 'id', placeholder: 'Category ID', dflt: '1' }],
+                        defaultQuery: [
+                            { key: 'limit', value: '10', enabled: true },
+                            { key: 'cursor', value: '', enabled: false }
+                        ]
+                    },
+                    {
+                        method: 'PUT',
+                        path: '/api/categories/:id',
+                        name: 'Update Category',
+                        description: 'Update a category by ID',
+                        pathParams: [{ name: 'id', placeholder: 'Category ID', dflt: '1' }],
+                        body: { name: 'Updated Category', description: 'Updated description' }
+                    }
+                ]
+            },
+            {
+                group: 'Products',
+                items: [
+                    {
+                        method: 'GET',
+                        path: '/api/products',
+                        name: 'List Products',
+                        description: 'Get all products (cursor-based pagination)',
+                        defaultQuery: [
+                            { key: 'limit', value: '10', enabled: true },
+                            { key: 'cursor', value: '', enabled: false }
+                        ]
+                    },
+                    {
+                        method: 'GET',
+                        path: '/api/products/:id',
+                        name: 'Get Product',
+                        description: 'Get product by ID',
+                        pathParams: [{ name: 'id', placeholder: 'Product ID', dflt: '1' }]
+                    },
+                    {
+                        method: 'POST',
+                        path: '/api/products',
+                        name: 'Create Product',
+                        description: 'Create a new product',
+                        body: {
+                            name: 'New Product',
+                            description: 'Product description',
+                            price: 29.99,
+                            stock: 100,
+                            category_id: 1
+                        }
+                    },
+                    {
+                        method: 'PUT',
+                        path: '/api/products/:id',
+                        name: 'Update Product',
+                        description: 'Update a product by ID',
+                        pathParams: [{ name: 'id', placeholder: 'Product ID', dflt: '1' }],
+                        body: {
+                            name: 'Updated Product',
+                            description: 'Updated description',
+                            price: 39.99,
+                            stock: 50
+                        }
+                    },
+                    {
+                        method: 'DELETE',
+                        path: '/api/products/:id',
+                        name: 'Delete Product',
+                        description: 'Delete a product by ID',
+                        pathParams: [{ name: 'id', placeholder: 'Product ID', dflt: '1' }]
+                    }
+                ]
+            },
+            {
+                group: 'Authentication',
+                items: [
+                    {
+                        method: 'POST',
+                        path: '/api/tokens/generate',
+                        name: 'Generate Token',
+                        description: 'Generate a new Bearer token for API authentication',
+                        body: { name: 'My API Token' }
+                    }
+                ]
+            }
+        ];
+
+        // =============================================
+        // STATE
+        // =============================================
+        var state = {
+            activeEndpoint: null,
+            pathParams: {},
+            queryParams: [],
+            headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
+            collapsedGroups: {},
+            sidebarCollapsed: false,
+            lastResponse: null,
+            activeRequestTab: 'params',
+            activeResponseTab: 'json',
+            authToken: ''
+        };
+
+        // =============================================
+        // DOM REFERENCES
+        // =============================================
+        var els = {};
+
+        // =============================================
+        // INITIALIZATION
+        // =============================================
+        document.addEventListener('DOMContentLoaded', function() {
+            els.sidebar = document.getElementById('sidebar');
+            els.sidebarGroups = document.getElementById('sidebarGroups');
+            els.searchInput = document.getElementById('searchInput');
+            els.hamburgerBtn = document.getElementById('hamburgerBtn');
+            els.baseUrlDisplay = document.getElementById('baseUrlDisplay');
+            els.methodSelect = document.getElementById('methodSelect');
+            els.urlInput = document.getElementById('urlInput');
+            els.sendBtn = document.getElementById('sendBtn');
+            els.pathParams = document.getElementById('pathParams');
+            els.queryParams = document.getElementById('queryParams');
+            els.addQueryParam = document.getElementById('addQueryParam');
+            els.headerRows = document.getElementById('headerRows');
+            els.addHeader = document.getElementById('addHeader');
+            els.bodyEditor = document.getElementById('bodyEditor');
+            els.bodyError = document.getElementById('bodyError');
+            els.formatBtn = document.getElementById('formatBtn');
+            els.responseCard = document.getElementById('responseCard');
+            els.responseStatus = document.getElementById('responseStatus');
+            els.jsonViewer = document.getElementById('jsonViewer');
+            els.rawViewer = document.getElementById('rawViewer');
+            els.respHeadersTable = document.getElementById('respHeadersTable');
+            els.copyBtn = document.getElementById('copyBtn');
+            els.requestTabs = document.getElementById('requestTabs');
+            els.responseTabs = document.getElementById('responseTabs');
+            els.bearerTokenInput = document.getElementById('bearerTokenInput');
+            els.generateTokenBtn = document.getElementById('generateTokenBtn');
+            els.tokenNameInput = document.getElementById('tokenNameInput');
+            els.generatedTokenArea = document.getElementById('generatedTokenArea');
+            els.generatedTokenDisplay = document.getElementById('generatedTokenDisplay');
+            els.copyTokenBtn = document.getElementById('copyTokenBtn');
+            els.useTokenBtn = document.getElementById('useTokenBtn');
+
+            els.baseUrlDisplay.textContent = window.location.origin;
+
+            renderSidebar();
+            renderPathParams();
+            renderQueryParams();
+            renderHeaders();
+            updateBodyState();
+
+            // Event listeners
+            els.hamburgerBtn.addEventListener('click', toggleSidebar);
+            els.searchInput.addEventListener('input', filterEndpoints);
+            els.sendBtn.addEventListener('click', sendRequest);
+            els.urlInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') sendRequest();
+            });
+            els.addQueryParam.addEventListener('click', function() {
+                state.queryParams.push({ key: '', value: '', enabled: true });
+                renderQueryParams();
+            });
+            els.addHeader.addEventListener('click', function() {
+                state.headers.push({ key: '', value: '', enabled: true });
+                renderHeaders();
+            });
+            els.formatBtn.addEventListener('click', formatBody);
+            els.copyBtn.addEventListener('click', copyResponse);
+            els.bearerTokenInput.addEventListener('input', function(e) {
+                state.authToken = e.target.value;
+            });
+            els.generateTokenBtn.addEventListener('click', generateNewToken);
+            els.copyTokenBtn.addEventListener('click', function() {
+                var token = els.generatedTokenDisplay.value;
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(token).then(function() {
+                        els.copyTokenBtn.textContent = 'Copied!';
+                        els.copyTokenBtn.classList.add('copied');
+                        setTimeout(function() {
+                            els.copyTokenBtn.textContent = 'Copy';
+                            els.copyTokenBtn.classList.remove('copied');
+                        }, 2000);
+                    });
+                }
+            });
+            els.useTokenBtn.addEventListener('click', function() {
+                var token = els.generatedTokenDisplay.value;
+                els.bearerTokenInput.value = token;
+                state.authToken = token;
+            });
+            els.methodSelect.addEventListener('change', function() {
+                updateMethodColor();
+                updateBodyState();
+            });
+
+            els.requestTabs.addEventListener('click', function(e) {
+                if (e.target.classList.contains('tab')) {
+                    switchRequestTab(e.target.getAttribute('data-tab'));
+                }
+            });
+            els.responseTabs.addEventListener('click', function(e) {
+                if (e.target.classList.contains('tab')) {
+                    switchResponseTab(e.target.getAttribute('data-tab'));
+                }
+            });
+
+            updateMethodColor();
+        });
+
+        // =============================================
+        // SIDEBAR
+        // =============================================
+        function renderSidebar(filter) {
+            var html = '';
+            var filterLower = (filter || '').toLowerCase();
+
+            for (var g = 0; g < ENDPOINTS.length; g++) {
+                var group = ENDPOINTS[g];
+                var isCollapsed = state.collapsedGroups[group.group];
+                var visibleItems = [];
+
+                for (var i = 0; i < group.items.length; i++) {
+                    var item = group.items[i];
+                    if (!filterLower ||
+                        item.name.toLowerCase().indexOf(filterLower) !== -1 ||
+                        item.path.toLowerCase().indexOf(filterLower) !== -1 ||
+                        item.method.toLowerCase().indexOf(filterLower) !== -1) {
+                        visibleItems.push({ item: item, idx: i });
+                    }
+                }
+
+                if (filterLower && visibleItems.length === 0) continue;
+
+                var arrowClass = 'group-arrow' + (isCollapsed ? ' collapsed' : '');
+                var itemsClass = 'group-items' + (isCollapsed ? ' collapsed' : '');
+
+                html += '<div class="sidebar-group">';
+                html += '<div class="group-header" data-group="' + g + '">';
+                html += '<span class="' + arrowClass + '">&#9660;</span>';
+                html += group.group;
+                html += '</div>';
+                html += '<div class="' + itemsClass + '">';
+
+                for (var v = 0; v < visibleItems.length; v++) {
+                    var vi = visibleItems[v];
+                    var isActive = state.activeEndpoint &&
+                        state.activeEndpoint.groupIdx === g &&
+                        state.activeEndpoint.itemIdx === vi.idx;
+                    var itemClass = 'endpoint-item' + (isActive ? ' active' : '');
+                    var methodLower = vi.item.method.toLowerCase();
+
+                    html += '<div class="' + itemClass + '" data-group="' + g + '" data-item="' + vi.idx + '">';
+                    html += '<span class="method-badge ' + methodLower + '">' + vi.item.method + '</span>';
+                    html += '<span class="endpoint-path">' + vi.item.path + '</span>';
+                    html += '</div>';
+                }
+
+                html += '</div></div>';
+            }
+
+            els.sidebarGroups.innerHTML = html;
+
+            var groupHeaders = els.sidebarGroups.querySelectorAll('.group-header');
+            for (var h = 0; h < groupHeaders.length; h++) {
+                groupHeaders[h].addEventListener('click', handleGroupClick);
+            }
+
+            var items = els.sidebarGroups.querySelectorAll('.endpoint-item');
+            for (var j = 0; j < items.length; j++) {
+                items[j].addEventListener('click', handleEndpointClick);
+            }
+        }
+
+        function handleGroupClick(e) {
+            var header = e.currentTarget;
+            var gIdx = parseInt(header.getAttribute('data-group'), 10);
+            var groupName = ENDPOINTS[gIdx].group;
+            state.collapsedGroups[groupName] = !state.collapsedGroups[groupName];
+            renderSidebar(els.searchInput.value);
+        }
+
+        function handleEndpointClick(e) {
+            var el = e.currentTarget;
+            var gIdx = parseInt(el.getAttribute('data-group'), 10);
+            var iIdx = parseInt(el.getAttribute('data-item'), 10);
+            selectEndpoint(gIdx, iIdx);
+        }
+
+        function filterEndpoints() {
+            renderSidebar(els.searchInput.value);
+        }
+
+        function toggleSidebar() {
+            state.sidebarCollapsed = !state.sidebarCollapsed;
+            if (state.sidebarCollapsed) {
+                els.sidebar.classList.add('collapsed');
+            } else {
+                els.sidebar.classList.remove('collapsed');
+            }
+        }
+
+        // =============================================
+        // ENDPOINT SELECTION
+        // =============================================
+        function selectEndpoint(groupIdx, itemIdx) {
+            var endpoint = ENDPOINTS[groupIdx].items[itemIdx];
+            state.activeEndpoint = { groupIdx: groupIdx, itemIdx: itemIdx };
+
+            els.methodSelect.value = endpoint.method;
+            updateMethodColor();
+
+            state.pathParams = {};
+            if (endpoint.pathParams) {
+                for (var p = 0; p < endpoint.pathParams.length; p++) {
+                    var pp = endpoint.pathParams[p];
+                    state.pathParams[pp.name] = pp.dflt || '';
+                }
+            }
+
+            updateUrlFromEndpoint(endpoint);
+
+            if (endpoint.body) {
+                els.bodyEditor.value = JSON.stringify(endpoint.body, null, 2);
+            } else {
+                els.bodyEditor.value = '';
+            }
+
+            if (endpoint.defaultQuery) {
+                state.queryParams = endpoint.defaultQuery.map(function(q) {
+                    return { key: q.key, value: q.value, enabled: q.enabled };
+                });
+            } else {
+                state.queryParams = [];
+            }
+
+            renderPathParams();
+            renderQueryParams();
+            renderHeaders();
+            updateBodyState();
+            renderSidebar(els.searchInput.value);
+
+            if (endpoint.pathParams && endpoint.pathParams.length > 0) {
+                switchRequestTab('params');
+            } else if (endpoint.body) {
+                switchRequestTab('body');
+            } else {
+                switchRequestTab('params');
+            }
+
+            els.bodyEditor.classList.remove('error');
+            els.bodyError.classList.remove('visible');
+        }
+
+        function updateUrlFromEndpoint(endpoint) {
+            var url = endpoint.path;
+            if (endpoint.pathParams) {
+                for (var p = 0; p < endpoint.pathParams.length; p++) {
+                    var pp = endpoint.pathParams[p];
+                    var val = state.pathParams[pp.name] || pp.dflt || '';
+                    url = url.replace(':' + pp.name, val);
+                }
+            }
+            els.urlInput.value = url;
+        }
+
+        // =============================================
+        // TABS
+        // =============================================
+        function switchRequestTab(tab) {
+            state.activeRequestTab = tab;
+            var tabs = els.requestTabs.querySelectorAll('.tab');
+            for (var t = 0; t < tabs.length; t++) {
+                tabs[t].classList.toggle('active', tabs[t].getAttribute('data-tab') === tab);
+            }
+            var panels = { params: 'paramsPanel', auth: 'authPanel', headers: 'headersPanel', body: 'bodyPanel' };
+            for (var key in panels) {
+                document.getElementById(panels[key]).classList.toggle('active', key === tab);
+            }
+        }
+
+        function switchResponseTab(tab) {
+            state.activeResponseTab = tab;
+            var tabs = els.responseTabs.querySelectorAll('.tab');
+            for (var t = 0; t < tabs.length; t++) {
+                tabs[t].classList.toggle('active', tabs[t].getAttribute('data-tab') === tab);
+            }
+            var panels = { json: 'jsonPanel', raw: 'rawPanel', respHeaders: 'respHeadersPanel' };
+            for (var key in panels) {
+                document.getElementById(panels[key]).classList.toggle('active', key === tab);
+            }
+        }
+
+        // =============================================
+        // PATH PARAMETERS
+        // =============================================
+        function renderPathParams() {
+            var endpoint = getActiveEndpoint();
+            if (!endpoint || !endpoint.pathParams || endpoint.pathParams.length === 0) {
+                els.pathParams.innerHTML = '<div class="no-params">No path parameters</div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < endpoint.pathParams.length; i++) {
+                var pp = endpoint.pathParams[i];
+                var val = state.pathParams[pp.name] || '';
+                html += '<div class="kv-row">';
+                html += '<input type="text" value="' + escapeAttr(pp.name) + '" disabled style="flex:0.5;background:#f5f5f5;">';
+                html += '<input type="text" value="' + escapeAttr(val) + '" placeholder="' + escapeAttr(pp.placeholder || pp.name) + '" data-param="' + escapeAttr(pp.name) + '" class="path-param-input">';
+                html += '</div>';
+            }
+            els.pathParams.innerHTML = html;
+
+            var inputs = els.pathParams.querySelectorAll('.path-param-input');
+            for (var j = 0; j < inputs.length; j++) {
+                inputs[j].addEventListener('input', handlePathParamChange);
+            }
+        }
+
+        function handlePathParamChange(e) {
+            var paramName = e.target.getAttribute('data-param');
+            state.pathParams[paramName] = e.target.value;
+            var endpoint = getActiveEndpoint();
+            if (endpoint) {
+                updateUrlFromEndpoint(endpoint);
+            }
+        }
+
+        // =============================================
+        // QUERY PARAMETERS
+        // =============================================
+        function renderQueryParams() {
+            if (state.queryParams.length === 0) {
+                els.queryParams.innerHTML = '<div class="no-params">No query parameters</div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < state.queryParams.length; i++) {
+                var qp = state.queryParams[i];
+                html += '<div class="kv-row" data-idx="' + i + '">';
+                html += '<input type="checkbox"' + (qp.enabled ? ' checked' : '') + ' class="qp-enabled">';
+                html += '<input type="text" value="' + escapeAttr(qp.key) + '" placeholder="Key" class="qp-key">';
+                html += '<input type="text" value="' + escapeAttr(qp.value) + '" placeholder="Value" class="qp-value">';
+                html += '<button class="kv-remove qp-remove">&times;</button>';
+                html += '</div>';
+            }
+            els.queryParams.innerHTML = html;
+
+            var rows = els.queryParams.querySelectorAll('.kv-row');
+            for (var j = 0; j < rows.length; j++) {
+                var idx = parseInt(rows[j].getAttribute('data-idx'), 10);
+                attachQpListeners(rows[j], idx);
+            }
+        }
+
+        function attachQpListeners(row, idx) {
+            row.querySelector('.qp-enabled').addEventListener('change', function(e) {
+                state.queryParams[idx].enabled = e.target.checked;
+            });
+            row.querySelector('.qp-key').addEventListener('input', function(e) {
+                state.queryParams[idx].key = e.target.value;
+            });
+            row.querySelector('.qp-value').addEventListener('input', function(e) {
+                state.queryParams[idx].value = e.target.value;
+            });
+            row.querySelector('.qp-remove').addEventListener('click', function() {
+                state.queryParams.splice(idx, 1);
+                renderQueryParams();
+            });
+        }
+
+        // =============================================
+        // HEADERS
+        // =============================================
+        function renderHeaders() {
+            var html = '';
+            for (var i = 0; i < state.headers.length; i++) {
+                var h = state.headers[i];
+                html += '<div class="kv-row" data-idx="' + i + '">';
+                html += '<input type="checkbox"' + (h.enabled ? ' checked' : '') + ' class="h-enabled">';
+                html += '<input type="text" value="' + escapeAttr(h.key) + '" placeholder="Header name" class="h-key">';
+                html += '<input type="text" value="' + escapeAttr(h.value) + '" placeholder="Header value" class="h-value">';
+                html += '<button class="kv-remove h-remove">&times;</button>';
+                html += '</div>';
+            }
+            els.headerRows.innerHTML = html;
+
+            var rows = els.headerRows.querySelectorAll('.kv-row');
+            for (var j = 0; j < rows.length; j++) {
+                var idx = parseInt(rows[j].getAttribute('data-idx'), 10);
+                attachHeaderListeners(rows[j], idx);
+            }
+        }
+
+        function attachHeaderListeners(row, idx) {
+            row.querySelector('.h-enabled').addEventListener('change', function(e) {
+                state.headers[idx].enabled = e.target.checked;
+            });
+            row.querySelector('.h-key').addEventListener('input', function(e) {
+                state.headers[idx].key = e.target.value;
+            });
+            row.querySelector('.h-value').addEventListener('input', function(e) {
+                state.headers[idx].value = e.target.value;
+            });
+            row.querySelector('.h-remove').addEventListener('click', function() {
+                state.headers.splice(idx, 1);
+                renderHeaders();
+            });
+        }
+
+        // =============================================
+        // AUTH - Generate Token
+        // =============================================
+        function generateNewToken() {
+            var name = els.tokenNameInput.value.trim() || 'API Token';
+            els.generateTokenBtn.disabled = true;
+            els.generateTokenBtn.textContent = 'Generating...';
+
+            fetch(window.location.origin + '/api/tokens/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: name })
+            })
+            .then(function(resp) { return resp.json(); })
+            .then(function(data) {
+                if (data.success && data.data && data.data.token) {
+                    els.generatedTokenArea.style.display = '';
+                    els.generatedTokenDisplay.value = data.data.token;
+                } else {
+                    alert('Failed to generate token: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(function(err) {
+                alert('Error generating token: ' + err.message);
+            })
+            .then(function() {
+                els.generateTokenBtn.disabled = false;
+                els.generateTokenBtn.textContent = 'Generate';
+            });
+        }
+
+        // =============================================
+        // BODY
+        // =============================================
+        function updateBodyState() {
+            var method = els.methodSelect.value;
+            var hasBody = method === 'POST' || method === 'PUT';
+            els.bodyEditor.disabled = !hasBody;
+            els.formatBtn.disabled = !hasBody;
+            if (!hasBody) {
+                els.bodyEditor.placeholder = 'Body not available for ' + method + ' requests';
+            } else {
+                els.bodyEditor.placeholder = 'Enter JSON body...';
+            }
+        }
+
+        function formatBody() {
+            var val = els.bodyEditor.value.trim();
+            if (!val) return;
+            try {
+                var parsed = JSON.parse(val);
+                els.bodyEditor.value = JSON.stringify(parsed, null, 2);
+                els.bodyEditor.classList.remove('error');
+                els.bodyError.classList.remove('visible');
+            } catch (e) {
+                els.bodyEditor.classList.add('error');
+                els.bodyError.textContent = 'Invalid JSON: ' + e.message;
+                els.bodyError.classList.add('visible');
+            }
+        }
+
+        // =============================================
+        // METHOD COLOR
+        // =============================================
+        function updateMethodColor() {
+            var method = els.methodSelect.value.toLowerCase();
+            var colors = {
+                get: '#49cc90',
+                post: '#61affe',
+                put: '#fca130',
+                'delete': '#f93e3e'
+            };
+            els.methodSelect.style.borderColor = colors[method] || '#e0e0e0';
+            els.methodSelect.style.color = colors[method] || '#1e1e2e';
+        }
+
+        // =============================================
+        // SEND REQUEST
+        // =============================================
+        function sendRequest() {
+            var method = els.methodSelect.value;
+            var url = els.urlInput.value.trim();
+
+            if (!url) {
+                els.urlInput.focus();
+                return;
+            }
+
+            // Build full URL
+            if (url.indexOf('http') !== 0) {
+                url = window.location.origin + (url.charAt(0) === '/' ? '' : '/') + url;
+            }
+
+            // Append query params
+            var queryParts = [];
+            for (var q = 0; q < state.queryParams.length; q++) {
+                var qp = state.queryParams[q];
+                if (qp.enabled && qp.key) {
+                    queryParts.push(encodeURIComponent(qp.key) + '=' + encodeURIComponent(qp.value));
+                }
+            }
+            if (queryParts.length > 0) {
+                url += (url.indexOf('?') === -1 ? '?' : '&') + queryParts.join('&');
+            }
+
+            // Build headers
+            var fetchHeaders = {};
+            for (var h = 0; h < state.headers.length; h++) {
+                var hdr = state.headers[h];
+                if (hdr.enabled && hdr.key) {
+                    fetchHeaders[hdr.key] = hdr.value;
+                }
+            }
+
+            // Inject Bearer token
+            if (state.authToken) {
+                fetchHeaders['Authorization'] = 'Bearer ' + state.authToken;
+            }
+
+            // Build body
+            var fetchBody;
+            if (method === 'POST' || method === 'PUT') {
+                var bodyVal = els.bodyEditor.value.trim();
+                if (bodyVal) {
+                    try {
+                        JSON.parse(bodyVal);
+                        fetchBody = bodyVal;
+                        els.bodyEditor.classList.remove('error');
+                        els.bodyError.classList.remove('visible');
+                    } catch (e) {
+                        els.bodyEditor.classList.add('error');
+                        els.bodyError.textContent = 'Invalid JSON: ' + e.message;
+                        els.bodyError.classList.add('visible');
+                        switchRequestTab('body');
+                        return;
+                    }
+                }
+            }
+
+            // Loading state
+            els.sendBtn.disabled = true;
+            els.sendBtn.classList.add('loading');
+            els.sendBtn.textContent = 'Sending...';
+
+            var startTime = performance.now();
+            var fetchOptions = {
+                method: method,
+                headers: fetchHeaders
+            };
+            if (fetchBody) {
+                fetchOptions.body = fetchBody;
+            }
+
+            fetch(url, fetchOptions)
+                .then(function(response) {
+                    var endTime = performance.now();
+                    var duration = Math.round(endTime - startTime);
+
+                    var respHeaders = {};
+                    response.headers.forEach(function(value, key) {
+                        respHeaders[key] = value;
+                    });
+
+                    return response.text().then(function(text) {
+                        return {
+                            status: response.status,
+                            statusText: response.statusText,
+                            duration: duration,
+                            size: text.length,
+                            headers: respHeaders,
+                            body: text
+                        };
+                    });
+                })
+                .then(function(result) {
+                    state.lastResponse = result;
+                    renderResponse(result);
+                })
+                .catch(function(error) {
+                    state.lastResponse = {
+                        status: 0,
+                        statusText: 'Network Error',
+                        duration: Math.round(performance.now() - startTime),
+                        size: 0,
+                        headers: {},
+                        body: 'Error: ' + error.message
+                    };
+                    renderResponse(state.lastResponse);
+                })
+                .then(function() {
+                    els.sendBtn.disabled = false;
+                    els.sendBtn.classList.remove('loading');
+                    els.sendBtn.textContent = 'Send';
+                });
+        }
+
+        // =============================================
+        // RESPONSE RENDERING
+        // =============================================
+        function renderResponse(result) {
+            els.responseCard.classList.add('visible');
+
+            // Status bar
+            var statusClass = 's' + Math.floor(result.status / 100) + 'xx';
+            if (result.status === 0) statusClass = 's5xx';
+
+            var statusHtml = '<span class="status-badge ' + statusClass + '">' +
+                result.status + ' ' + escapeHtml(result.statusText) + '</span>';
+            statusHtml += '<span class="response-meta">' + result.duration + ' ms</span>';
+            statusHtml += '<span class="response-meta">' + formatBytes(result.size) + '</span>';
+            els.responseStatus.innerHTML = statusHtml;
+
+            // JSON viewer
+            try {
+                var parsed = JSON.parse(result.body);
+                els.jsonViewer.innerHTML = '';
+                els.jsonViewer.appendChild(buildJsonTree(parsed, true));
+            } catch (e) {
+                els.jsonViewer.innerHTML = '<div class="no-params">Response is not valid JSON</div>';
+            }
+
+            // Raw viewer
+            els.rawViewer.textContent = result.body;
+
+            // Response headers
+            var headersHtml = '';
+            var headerKeys = Object.keys(result.headers);
+            for (var i = 0; i < headerKeys.length; i++) {
+                headersHtml += '<div class="resp-header-row">';
+                headersHtml += '<div class="resp-header-key">' + escapeHtml(headerKeys[i]) + '</div>';
+                headersHtml += '<div class="resp-header-value">' + escapeHtml(result.headers[headerKeys[i]]) + '</div>';
+                headersHtml += '</div>';
+            }
+            els.respHeadersTable.innerHTML = headersHtml || '<div class="no-params">No headers available</div>';
+
+            els.responseCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        // =============================================
+        // JSON TREE BUILDER
+        // =============================================
+        function buildJsonTree(data, isRoot) {
+            var container = document.createElement('div');
+            if (isRoot) container.className = 'json-tree';
+
+            if (data === null) {
+                container.innerHTML = '<span class="json-null">null</span>';
+                return container;
+            }
+
+            var type = typeof data;
+
+            if (type === 'string') {
+                container.innerHTML = '<span class="json-string">"' + escapeHtml(data) + '"</span>';
+                return container;
+            }
+
+            if (type === 'number') {
+                container.innerHTML = '<span class="json-number">' + data + '</span>';
+                return container;
+            }
+
+            if (type === 'boolean') {
+                container.innerHTML = '<span class="json-boolean">' + data + '</span>';
+                return container;
+            }
+
+            if (Array.isArray(data)) {
+                renderCollapsible(container, data, '[', ']', function(child) {
+                    for (var i = 0; i < data.length; i++) {
+                        var line = document.createElement('div');
+                        line.className = 'json-line';
+                        line.appendChild(buildJsonTree(data[i], false));
+                        if (i < data.length - 1) {
+                            var comma = document.createElement('span');
+                            comma.textContent = ',';
+                            line.appendChild(comma);
+                        }
+                        child.appendChild(line);
+                    }
+                }, data.length + ' items');
+                return container;
+            }
+
+            if (type === 'object') {
+                var keys = Object.keys(data);
+                renderCollapsible(container, data, '{', '}', function(child) {
+                    for (var i = 0; i < keys.length; i++) {
+                        var line = document.createElement('div');
+                        line.className = 'json-line';
+
+                        var keySpan = document.createElement('span');
+                        keySpan.className = 'json-key';
+                        keySpan.textContent = '"' + keys[i] + '"';
+                        line.appendChild(keySpan);
+
+                        var colon = document.createTextNode(': ');
+                        line.appendChild(colon);
+
+                        line.appendChild(buildJsonTree(data[keys[i]], false));
+
+                        if (i < keys.length - 1) {
+                            var comma = document.createElement('span');
+                            comma.textContent = ',';
+                            line.appendChild(comma);
+                        }
+                        child.appendChild(line);
+                    }
+                }, keys.length + ' keys');
+                return container;
+            }
+
+            container.textContent = String(data);
+            return container;
+        }
+
+        function renderCollapsible(container, data, openBr, closeBr, renderChildren, summary) {
+            var count = Array.isArray(data) ? data.length : Object.keys(data).length;
+
+            if (count === 0) {
+                container.innerHTML = '<span class="json-bracket">' + openBr + closeBr + '</span>';
+                return;
+            }
+
+            var toggle = document.createElement('span');
+            toggle.className = 'json-toggle';
+            toggle.textContent = '\u25BC';
+            container.appendChild(toggle);
+
+            var open = document.createElement('span');
+            open.className = 'json-bracket';
+            open.textContent = openBr;
+            container.appendChild(open);
+
+            var info = document.createElement('span');
+            info.className = 'json-collapsed-info';
+            info.textContent = ' ' + summary + ' ';
+            info.style.display = 'none';
+            container.appendChild(info);
+
+            var children = document.createElement('div');
+            children.className = 'json-children';
+            renderChildren(children);
+            container.appendChild(children);
+
+            var close = document.createElement('span');
+            close.className = 'json-bracket';
+            close.textContent = closeBr;
+            container.appendChild(close);
+
+            toggle.addEventListener('click', function() {
+                var isCollapsed = children.style.display === 'none';
+                children.style.display = isCollapsed ? '' : 'none';
+                info.style.display = isCollapsed ? 'none' : '';
+                toggle.textContent = isCollapsed ? '\u25BC' : '\u25B6';
+            });
+        }
+
+        // =============================================
+        // UTILITIES
+        // =============================================
+        function getActiveEndpoint() {
+            if (!state.activeEndpoint) return null;
+            return ENDPOINTS[state.activeEndpoint.groupIdx].items[state.activeEndpoint.itemIdx];
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function escapeHtml(str) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(String(str)));
+            return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function copyResponse() {
+            if (!state.lastResponse) return;
+            var text = state.lastResponse.body;
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(function() {
+                    showCopied();
+                });
+            } else {
+                var textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showCopied();
+            }
+        }
+
+        function showCopied() {
+            els.copyBtn.textContent = 'Copied!';
+            els.copyBtn.classList.add('copied');
+            setTimeout(function() {
+                els.copyBtn.textContent = 'Copy';
+                els.copyBtn.classList.remove('copied');
+            }, 2000);
+        }
+    })();
+    </script>
+</body>
+</html>

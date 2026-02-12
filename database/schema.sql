@@ -19,7 +19,29 @@ CREATE TABLE IF NOT EXISTS products (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
+-- API Tokens table
+CREATE TABLE IF NOT EXISTS api_tokens (
+    id SERIAL PRIMARY KEY,
+    token VARCHAR(64) UNIQUE NOT NULL,
+    name VARCHAR(100) DEFAULT 'API Token',
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_used_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT true
+);
+
+-- Add updated_at columns if they don't exist (safe migration)
+DO $$ BEGIN
+    ALTER TABLE categories ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
+DO $$ BEGIN
+    ALTER TABLE products ADD COLUMN updated_at TIMESTAMP DEFAULT NOW();
+EXCEPTION WHEN duplicate_column THEN NULL;
+END $$;
+
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_products_category_id ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);

@@ -24,7 +24,8 @@ await client.query('BEGIN');
 console.log(' Resetting database...');
 
 // Truncate tables (cascade will handle products)
-await client.query('TRUNCATE TABLE categories CASCADE');
+await client.query('TRUNCATE TABLE categories RESTART IDENTITY CASCADE');
+await client.query('TRUNCATE TABLE api_tokens RESTART IDENTITY CASCADE');
 console.log(' Tables truncated');
 
 // Insert categories

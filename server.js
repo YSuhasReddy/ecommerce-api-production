@@ -7,6 +7,7 @@ const cron = require('node-cron');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
 const Sentry = require('@sentry/node');
 
 const { initializeDatabase, resetDatabase } = require('./database/seedData');
@@ -20,6 +21,10 @@ const logger = require('./utils/logger');
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '5000', 10);
+
+// Trust proxy headers (required for ngrok/reverse proxy support)
+// Ensures req.ip, req.protocol, req.hostname reflect the real client values
+app.set('trust proxy', true);
 
 // ============================================
 // 1. SENTRY ERROR TRACKING (Must be first)
@@ -49,7 +54,7 @@ contentSecurityPolicy: {
 directives: {
 defaultSrc: ["'self'"],
 styleSrc: ["'self'", "'unsafe-inline'"],
-scriptSrc: ["'self'"],
+scriptSrc: ["'self'", "'unsafe-inline'"],
 imgSrc: ["'self'", "data:", "https:"],
 },
 },
@@ -138,13 +143,21 @@ contact: {
 name: 'API Support',
 },
 },
-servers: [
-{
-url: `http://${process.env.SWAGGER_HOST || 'localhost:5000'}`,
-description: 'Development server',
+servers: [], // Populated dynamically per-request
+components: {
+securitySchemes: {
+BearerAuth: {
+type: 'http',
+scheme: 'bearer',
+description: 'Generate a token via POST /api/tokens/generate, then paste it here.',
 },
-],
+},
+},
 tags: [
+{
+name: 'Authentication',
+description: 'Token generation for API access',
+},
 {
 name: 'Categories',
 description: 'Category management endpoints',
@@ -160,11 +173,21 @@ apis: ['./routes/*.js'],
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+// Swagger UI - dynamically set server URL from the incoming request
+app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
+const protocol = req.protocol;
+const host = req.get('host');
+const dynamicSpec = {
+...swaggerSpec,
+servers: [
+{ url: `${protocol}://${host}`, description: 'Current server' },
+],
+};
+swaggerUi.setup(dynamicSpec, {
 explorer: true,
 customCss: '.swagger-ui .topbar { display: none }',
-}));
+})(req, res, next);
+});
 
 // ============================================
 // HEALTH CHECK & METRICS ENDPOINTS
@@ -240,20 +263,30 @@ error: 'Health check failed',
 */
 app.get('/metrics', getMetrics);
 
+// API Tester UI
+app.get('/api-tester', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'api-tester.html'));
+});
+
 // Import routes
 const categoryRoutes = require('./routes/categories');
 const productRoutes = require('./routes/products');
+const tokenRoutes = require('./routes/tokens');
+const { requireAuth } = require('./middleware/auth');
 
-// Use routes
-app.use('/api/categories', categoryRoutes);
-app.use('/api/products', productRoutes);
+// Use routes (categories & products require Bearer token)
+app.use('/api/categories', requireAuth, categoryRoutes);
+app.use('/api/products', requireAuth, productRoutes);
+app.use('/api/tokens', tokenRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
+const baseUrl = `${req.protocol}://${req.get('host')}`;
 res.json({
 message: 'Welcome to Ecommerce API',
 version: '1.0.0',
-documentation: `http://${process.env.SWAGGER_HOST || 'localhost:5000'}/api-docs`,
+documentation: `${baseUrl}/api-docs`,
+apiTester: `${baseUrl}/api-tester`,
 endpoints: {
 categories: '/api/categories',
 products: '/api/products',
@@ -405,6 +438,7 @@ redis: isRedisAvailable() ? 'connected' : 'disabled',
 logger.info('Server', `API Documentation: http://localhost:${PORT}/api-docs`);
 logger.info('Server', `Health Check: http://localhost:${PORT}/health`);
 logger.info('Server', `Metrics Endpoint: http://localhost:${PORT}/metrics`);
+logger.info('Server', `API Tester: http://localhost:${PORT}/api-tester`);
 
 if (process.env.SENTRY_DSN) {
 logger.info('Server', 'Sentry error tracking: ENABLED');

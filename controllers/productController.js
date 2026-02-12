@@ -6,7 +6,7 @@ const { recordProductOperation, recordDbQuery } = require('../utils/metrics');
 const logger = require('../utils/logger');
 
 // Get all products with cursor-based pagination and caching
-async function getAllProductsPaginated(categoryId, cursor, limit = 20, req) {
+async function getAllProductsPaginated(cursor, limit = 10, req) {
 try {
 // Validate cursor format (P0 Fix)
 if (cursor !== undefined && cursor !== null && cursor !== '') {
@@ -17,7 +17,7 @@ throw new BadRequestError('Invalid cursor format: must be a positive integer', '
 cursor = cursorInt; // Use validated integer
 }
 
-const cacheKey = `products:paginated:${categoryId || 'all'}:${cursor || 'start'}:${limit}`;
+const cacheKey = `products:paginated:${cursor || 'start'}:${limit}`;
 
 return await getCached(cacheKey, async () => {
 let sql;
@@ -25,30 +25,6 @@ let params;
 
 const start = Date.now();
 
-if (categoryId) {
-categoryId = parseInt(categoryId, 10);
-if (isNaN(categoryId) || categoryId < 1) {
-throw new BadRequestError('Invalid category ID', 'INVALID_CATEGORY_ID');
-}
-
-if (cursor) {
-sql = `SELECT p.*, c.name as category_name
-FROM products p
-JOIN categories c ON p.category_id = c.id
-WHERE p.category_id = $1 AND p.id < $2
-ORDER BY p.id DESC
-LIMIT $3`;
-params = [categoryId, cursor, limit + 1];
-} else {
-sql = `SELECT p.*, c.name as category_name
-FROM products p
-JOIN categories c ON p.category_id = c.id
-WHERE p.category_id = $1
-ORDER BY p.id DESC
-LIMIT $2`;
-params = [categoryId, limit + 1];
-}
-} else {
 if (cursor) {
 sql = `SELECT p.*, c.name as category_name
 FROM products p
@@ -65,7 +41,6 @@ ORDER BY p.id DESC
 LIMIT $1`;
 params = [limit + 1];
 }
-}
 
 const result = await query(sql, params);
 const duration = (Date.now() - start) / 1000;
@@ -76,7 +51,6 @@ const products = hasMore ? result.rows.slice(0, -1) : result.rows;
 const nextCursor = hasMore ? products[products.length - 1].id : null;
 
 logger.debug('ProductController', 'getAllProductsPaginated executed', {
-categoryId,
 cursor,
 limit,
 rowCount: products.length,

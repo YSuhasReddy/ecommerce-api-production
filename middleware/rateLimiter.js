@@ -81,8 +81,9 @@ retryAfter: Math.ceil((req.rateLimit?.resetTime?.getTime() - Date.now()) / 1000)
 },
 skip: (req) => {
 // Skip rate limiting for health checks
-return req.path === '/health' || req.path === '/metrics';
+return req.path === '/health' || req.path === '/metrics' || req.path === '/api-tester';
 },
+validate: { trustProxy: false },
 };
 
 // Use Redis if available
