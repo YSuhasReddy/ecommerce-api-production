@@ -5,65 +5,51 @@ const { logAudit } = require('../utils/auditLogger');
 const { recordProductOperation, recordDbQuery } = require('../utils/metrics');
 const logger = require('../utils/logger');
 
-// Get all products with cursor-based pagination and caching
-async function getAllProductsPaginated(cursor, limit = 10, req) {
+// Get all products with offset/page-based pagination and caching
+async function getAllProductsPaginated(page, limit = 10, req) {
 try {
-// Validate cursor format (P0 Fix)
-if (cursor !== undefined && cursor !== null && cursor !== '') {
-const cursorInt = parseInt(cursor, 10);
-if (isNaN(cursorInt) || cursorInt < 1) {
-throw new BadRequestError('Invalid cursor format: must be a positive integer', 'INVALID_CURSOR');
-}
-cursor = cursorInt; // Use validated integer
-}
-
-const cacheKey = `products:paginated:${cursor || 'start'}:${limit}`;
+const cacheKey = `products:paginated:page:${page}:limit:${limit}`;
 
 return await getCached(cacheKey, async () => {
-let sql;
-let params;
-
+const offset = (page - 1) * limit;
 const start = Date.now();
 
-if (cursor) {
-sql = `SELECT p.*, c.name as category_name
-FROM products p
-JOIN categories c ON p.category_id = c.id
-WHERE p.id < $1
-ORDER BY p.id DESC
-LIMIT $2`;
-params = [cursor, limit + 1];
-} else {
-sql = `SELECT p.*, c.name as category_name
-FROM products p
-JOIN categories c ON p.category_id = c.id
-ORDER BY p.id DESC
-LIMIT $1`;
-params = [limit + 1];
-}
+const countResult = await query(
+'SELECT COUNT(*) FROM products p JOIN categories c ON p.category_id = c.id'
+);
+const total = parseInt(countResult.rows[0].count, 10);
 
-const result = await query(sql, params);
+const result = await query(
+`SELECT p.*, c.name as category_name
+FROM products p
+JOIN categories c ON p.category_id = c.id
+ORDER BY p.id DESC
+LIMIT $1 OFFSET $2`,
+[limit, offset]
+);
 const duration = (Date.now() - start) / 1000;
 recordDbQuery('select', 'products', duration);
 
-const hasMore = result.rows.length > limit;
-const products = hasMore ? result.rows.slice(0, -1) : result.rows;
-const nextCursor = hasMore ? products[products.length - 1].id : null;
+const products = result.rows;
+const totalPages = Math.ceil(total / limit);
 
 logger.debug('ProductController', 'getAllProductsPaginated executed', {
-cursor,
+page,
+offset,
 limit,
 rowCount: products.length,
-hasMore,
-nextCursor,
+total,
+totalPages,
 });
 
 recordProductOperation('read');
 
 return {
 products,
-nextCursor,
-hasMore,
+total,
+page,
+limit,
+totalPages,
 };
 }, 300); // Cache for 5 minutes
 } catch (error) {

@@ -2,39 +2,26 @@ const { pool } = require('../database/connection');
 const { AppError, handleDatabaseError } = require('../utils/errorHandler');
 const logger = require('../utils/logger');
 
-// Get all categories with cursor-based pagination
-async function getAllCategories(cursor, limit = 10) {
+// Get all categories with offset/page-based pagination
+async function getAllCategories(page, limit = 10) {
 try {
-if (cursor !== undefined && cursor !== null && cursor !== '') {
-const cursorInt = parseInt(cursor, 10);
-if (isNaN(cursorInt) || cursorInt < 1) {
-throw new AppError('Invalid cursor format: must be a positive integer', 400, 'INVALID_CURSOR');
-}
-cursor = cursorInt;
-}
+const offset = (page - 1) * limit;
 
-let sql;
-let params;
+const countResult = await pool.query('SELECT COUNT(*) FROM categories');
+const total = parseInt(countResult.rows[0].count, 10);
 
-if (cursor) {
-sql = 'SELECT * FROM categories WHERE id < $1 ORDER BY id DESC LIMIT $2';
-params = [cursor, limit + 1];
-} else {
-sql = 'SELECT * FROM categories ORDER BY id DESC LIMIT $1';
-params = [limit + 1];
-}
-
-const result = await pool.query(sql, params);
-
-const hasMore = result.rows.length > limit;
-const categories = hasMore ? result.rows.slice(0, -1) : result.rows;
-const nextCursor = hasMore ? categories[categories.length - 1].id : null;
+const result = await pool.query(
+'SELECT * FROM categories ORDER BY id DESC LIMIT $1 OFFSET $2',
+[limit, offset]
+);
+const categories = result.rows;
+const totalPages = Math.ceil(total / limit);
 
 logger.debug('CategoryController', 'getAllCategories executed', {
-cursor, limit, rowCount: categories.length, hasMore, nextCursor,
+page, offset, limit, rowCount: categories.length, total, totalPages,
 });
 
-return { categories, nextCursor, hasMore };
+return { categories, total, page, limit, totalPages };
 } catch (error) {
 if (error instanceof AppError) throw error;
 logger.error('CategoryController', 'Error in getAllCategories', { error: error.message });
@@ -43,19 +30,11 @@ throw handleDatabaseError(error, 'CategoryController:getAllCategories');
 }
 
 // Get single category by ID with its products (paginated)
-async function getCategoryById(id, cursor, limit = 10) {
+async function getCategoryById(id, page, limit = 10) {
 try {
 id = parseInt(id, 10);
 if (isNaN(id) || id < 1) {
 throw new AppError('Invalid category ID', 400, 'INVALID_CATEGORY_ID');
-}
-
-if (cursor !== undefined && cursor !== null && cursor !== '') {
-const cursorInt = parseInt(cursor, 10);
-if (isNaN(cursorInt) || cursorInt < 1) {
-throw new AppError('Invalid cursor format: must be a positive integer', 400, 'INVALID_CURSOR');
-}
-cursor = cursorInt;
 }
 
 const categoryResult = await pool.query('SELECT * FROM categories WHERE id = $1', [id]);
@@ -65,30 +44,26 @@ return null;
 }
 
 const category = categoryResult.rows[0];
+const offset = (page - 1) * limit;
 
-// Get products in this category with cursor-based pagination
-let sql;
-let params;
+const countResult = await pool.query(
+'SELECT COUNT(*) FROM products WHERE category_id = $1',
+[id]
+);
+const total = parseInt(countResult.rows[0].count, 10);
 
-if (cursor) {
-sql = 'SELECT * FROM products WHERE category_id = $1 AND id < $2 ORDER BY id DESC LIMIT $3';
-params = [id, cursor, limit + 1];
-} else {
-sql = 'SELECT * FROM products WHERE category_id = $1 ORDER BY id DESC LIMIT $2';
-params = [id, limit + 1];
-}
-
-const productsResult = await pool.query(sql, params);
-
-const hasMore = productsResult.rows.length > limit;
-const products = hasMore ? productsResult.rows.slice(0, -1) : productsResult.rows;
-const nextCursor = hasMore ? products[products.length - 1].id : null;
+const productsResult = await pool.query(
+'SELECT * FROM products WHERE category_id = $1 ORDER BY id DESC LIMIT $2 OFFSET $3',
+[id, limit, offset]
+);
+const products = productsResult.rows;
+const totalPages = Math.ceil(total / limit);
 
 category.products = products;
-category.productsPagination = { cursor: nextCursor, hasMore, limit };
+category.productsPagination = { total, page, limit, totalPages };
 
 logger.debug('CategoryController', 'getCategoryById executed', {
-categoryId: id, productCount: products.length, hasMore, nextCursor,
+categoryId: id, productCount: products.length, page, offset, total, totalPages,
 });
 return category;
 } catch (error) {

@@ -32,16 +32,18 @@ const { asyncHandler } = require('../utils/errorHandler');
  * @swagger
  * /api/categories:
  *   get:
- *     summary: Get all categories (cursor-based pagination)
+ *     summary: Get all categories
  *     tags: [Categories]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: query
- *         name: cursor
+ *         name: page
  *         schema:
  *           type: integer
- *         description: Cursor for pagination (category ID to start after)
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number (default 1)
  *       - in: query
  *         name: limit
  *         schema:
@@ -67,28 +69,30 @@ const { asyncHandler } = require('../utils/errorHandler');
  *                 pagination:
  *                   type: object
  *                   properties:
- *                     cursor:
+ *                     total:
  *                       type: integer
- *                       nullable: true
- *                     hasMore:
- *                       type: boolean
+ *                     page:
+ *                       type: integer
  *                     limit:
+ *                       type: integer
+ *                     totalPages:
  *                       type: integer
  */
 router.get('/', asyncHandler(async (req, res, next) => {
 try {
-const cursor = req.query.cursor;
+const page = Math.max(parseInt(req.query.page || '1', 10), 1);
 const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
 
-const result = await categoryController.getAllCategories(cursor, limit);
+const result = await categoryController.getAllCategories(page, limit);
 
 res.json({
 success: true,
 data: result.categories,
 pagination: {
-cursor: result.nextCursor,
-hasMore: result.hasMore,
-limit,
+total: result.total,
+page: result.page,
+limit: result.limit,
+totalPages: result.totalPages,
 },
 });
 } catch (error) {
@@ -112,10 +116,12 @@ next(error);
  *           type: integer
  *         description: Category ID
  *       - in: query
- *         name: cursor
+ *         name: page
  *         schema:
  *           type: integer
- *         description: Cursor for products pagination (product ID to start after)
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number for products pagination (default 1)
  *       - in: query
  *         name: limit
  *         schema:
@@ -132,10 +138,10 @@ next(error);
  */
 router.get('/:id', validateIdParam('id'), handleValidationErrors, asyncHandler(async (req, res, next) => {
 try {
-const cursor = req.query.cursor;
+const page = Math.max(parseInt(req.query.page || '1', 10), 1);
 const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
 
-const category = await categoryController.getCategoryById(req.params.id, cursor, limit);
+const category = await categoryController.getCategoryById(req.params.id, page, limit);
 if (!category) {
 return res.status(404).json({ success: false, error: 'Category not found' });
 }

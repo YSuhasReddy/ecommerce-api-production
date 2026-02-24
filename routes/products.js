@@ -46,16 +46,18 @@ const logger = require('../utils/logger');
  * @swagger
  * /api/products:
  *   get:
- *     summary: Get all products (cursor-based pagination)
+ *     summary: Get all products
  *     tags: [Products]
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - in: query
- *         name: cursor
+ *         name: page
  *         schema:
  *           type: integer
- *         description: Cursor for pagination (product ID to start after)
+ *           default: 1
+ *           minimum: 1
+ *         description: Page number (default 1)
  *       - in: query
  *         name: limit
  *         schema:
@@ -81,29 +83,30 @@ const logger = require('../utils/logger');
  *                 pagination:
  *                   type: object
  *                   properties:
- *                     cursor:
+ *                     total:
  *                       type: integer
- *                       nullable: true
- *                     hasMore:
- *                       type: boolean
+ *                     page:
+ *                       type: integer
  *                     limit:
+ *                       type: integer
+ *                     totalPages:
  *                       type: integer
  */
 router.get('/', asyncHandler(async (req, res, next) => {
 try {
-const cursor = req.query.cursor;
-// P2 Fix: Enforce minimum limit of 1, maximum of 100
+const page = Math.max(parseInt(req.query.page || '1', 10), 1);
 const limit = Math.min(Math.max(parseInt(req.query.limit || '10', 10), 1), 100);
 
-const result = await productController.getAllProductsPaginated(cursor, limit, req);
+const result = await productController.getAllProductsPaginated(page, limit, req);
 
 res.json({
 success: true,
 data: result.products,
 pagination: {
-cursor: result.nextCursor,
-hasMore: result.hasMore,
-limit,
+total: result.total,
+page: result.page,
+limit: result.limit,
+totalPages: result.totalPages,
 },
 requestId: req.id,
 });
